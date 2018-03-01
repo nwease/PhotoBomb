@@ -2,12 +2,13 @@
 const turbo = require('turbo360')({ site_id: process.env.TURBO_APP_ID })
 const vertex = require('vertex360')({ site_id: process.env.TURBO_APP_ID })
 const router = vertex.router()
-const superagent = require('superagent')
+const utils = require('./utils')
 
 router.get('/', (req, res) => {
   const data = {
     text: 'PhotoBomb',
-    greeting: 'Welcome'
+    greeting: 'Welcome',
+    cdn: process.env.TURBO_CDN
   }
 
   res.render('index', data)
@@ -17,20 +18,18 @@ router.get('/:username', (req, res) => {
   const username = req.params.username
   const instagramAPI = 'https://www.instagram.com/' + username + '/?__a=1'
 
-  superagent
-    .get(instagramAPI)
-    .query(null)
-    .set('Accept', 'application/json')
-    .end((err, response) => {
-      if (err) {
-        const data = {
-          message: err.message || 'Check your spelling!'
-        }
-        res.render('error', data)
-        return
+  utils.HTTP.get(instagramAPI, null)
+    .then(data => {
+      data['cdn'] = process.env.TURBO_CDN
+      res.render('index', data)
+    })
+    .catch(err => {
+      const data = {
+        message: err.message || 'Check your spelling!'
       }
 
-      res.render('index', response.body)
+      data['cdn'] = process.env.TURBO_CDN
+      res.render('error', data)
     })
 })
 
@@ -40,20 +39,10 @@ router.get('/:username/:postcode', (req, res) => {
 
   const instagramAPI = 'https://www.instagram.com/' + username + '/?__a=1'
 
-  superagent
-    .get(instagramAPI)
-    .query(null)
-    .set('Accept', 'application/json')
-    .end((err, response) => {
-      if (err) {
-        const data = {
-          message: err.message || 'Check your spelling!'
-        }
-        res.render('error', data)
-        return
-      }
-
-      const posts = response.body.user.media.nodes
+  utils.HTTP.get(instagramAPI, null)
+    .then(data => {
+      const user = data.user
+      const posts = user.media.nodes
       let selectedPost = null
 
       for (let i = 0; i < posts.length; i++) {
@@ -65,16 +54,27 @@ router.get('/:username/:postcode', (req, res) => {
       }
 
       if (selectedPost == null) {
-        res.render('error', { message: 'Post not found!' })
+        throw new Error('Post not found!')
         return
       }
 
-      res.render('post', selectedPost)
+      selectedPost['user'] = {
+        username: user.username,
+        icon: user.profile_pic_url
+      }
 
-      //res.json({
-      //  confirmation: 'success',
-      //  data: selectedPost
-      //})
+      selectedPost['cdn'] = process.env.TURBO_CDN
+      res.render('post', selectedPost)
+      return
+    })
+    .catch(err => {
+      const data = {
+        message: err.message || 'Check your spelling!'
+      }
+
+      data['cdn'] = process.env.TURBO_CDN
+      res.render('error', data)
+      return
     })
 })
 

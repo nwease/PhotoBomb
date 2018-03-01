@@ -37,7 +37,9 @@
 						{{#user.media.nodes}}
 						<div class="col-md-4">
 							<div class="post">
-								<img src="{{thumbnail_src}}" />
+								<a href="{{user.username}}/{{code}}">
+									<img src="{{thumbnail_src}}" />
+								</a>
 							</div>
 						</div>
 						{{/user.media.nodes}}
